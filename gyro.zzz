@@ -1,0 +1,22 @@
+deps:
+  zgl:
+    src:
+      github:
+        user: ziglibs
+        repo: zgl
+        ref: master
+    root: zgl.zig
+  adma:
+    src:
+      github:
+        user: suirad
+        repo: adma
+        ref: master
+    root: src/adma.zig
+  SDL:
+    src:
+      github:
+        user: MasterQ32
+        repo: SDL.zig
+        ref: master
+    root: src/lib.zig
