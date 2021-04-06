@@ -95,7 +95,6 @@ pub fn main() !void {
 
         program.link();
     }
-
     gl.useProgram(program);
 
     var vao = gl.genVertexArray();
@@ -115,6 +114,7 @@ pub fn main() !void {
     gl.bindBuffer(ebo, .element_array_buffer);
     gl.bufferData(.element_array_buffer, u32, &indicies, .static_draw);
 
+    // triangle positions
     gl.vertexAttribPointer(
         0, 3, .float,
         false, 8*@sizeOf(f32), 0,
@@ -122,6 +122,7 @@ pub fn main() !void {
     gl.enableVertexAttribArray(0);
     defer gl.disableVertexAttribArray(0);
 
+    // colors
     gl.vertexAttribPointer(
         1, 3, .float,
         false, 8*@sizeOf(f32), 3*@sizeOf(f32),
@@ -129,6 +130,7 @@ pub fn main() !void {
     gl.enableVertexAttribArray(1);
     defer gl.disableVertexAttribArray(1);
 
+    // texture coords
     gl.vertexAttribPointer(
         2, 2, .float,
         false, 8*@sizeOf(f32), 6*@sizeOf(f32),
@@ -136,6 +138,7 @@ pub fn main() !void {
     gl.enableVertexAttribArray(2);
     defer gl.disableVertexAttribArray(2);
 
+    // main loop
     while(!glfw.windowShouldClose(window)){
         if(glfw.getKey(window, glfw.Key.Escape) == glfw.KeyState.Press){
             glfw.setWindowShouldClose(window, true);
@@ -144,7 +147,6 @@ pub fn main() !void {
         gl.clearColor(0, 0, 0, 1);
         //gl.clear(.{ .color = true, .depth = false, });
 
-        gl.bindTexture(brick_tex, .@"2d");
         gl.bindVertexArray(vao);
         gl.drawElements(.triangles, 6, .u32, null);
 
