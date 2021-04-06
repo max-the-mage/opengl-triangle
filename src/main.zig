@@ -45,15 +45,14 @@ pub fn main() !void {
     var brick_img = try img.Image.fromFilePath(alloc, ".\\res\\brick.png");
     defer brick_img.deinit();
 
-    const img_size = brick_img.width * brick_img.height * 8 * 4;
+    const img_size = brick_img.width * brick_img.height * 8 * 3;
     var buffer: []u8 = try alloc.alloc(u8, img_size);
     defer alloc.free(buffer);
     
     for (brick_img.pixels.?.Rgba32) |pix, i| {
-        buffer[i*4] = pix.R;
-        buffer[i*4 + 1] = pix.G;
-        buffer[i*4 + 2] = pix.B;
-        buffer[i*4+ 3] = pix.A;
+        buffer[i*3] = pix.R;
+        buffer[i*3 + 1] = pix.G;
+        buffer[i*3 + 2] = pix.B;
     }
 
     std.log.info("pixel format: {}", .{brick_img.pixel_format});
@@ -63,8 +62,8 @@ pub fn main() !void {
 
     gl.bindTexture(brick_tex, .@"2d");
     gl.textureImage2D(
-        .@"2d", 0, .rgba, brick_img.width, brick_img.height,
-        .rgba, .unsigned_byte, 
+        .@"2d", 0, .rgb, brick_img.width, brick_img.height,
+        .rgb, .unsigned_byte,
         buffer.ptr,
     );
 
@@ -105,25 +104,38 @@ pub fn main() !void {
     var vbo = gl.genBuffer();
     defer gl.deleteBuffer(vbo);
 
+    var ebo = gl.genBuffer();
+    defer gl.deleteBuffer(ebo);
+
     gl.bindVertexArray(vao);
 
     gl.bindBuffer(vbo, .array_buffer);
     gl.bufferData(.array_buffer, f32, &verticies, .static_draw);
 
+    gl.bindBuffer(ebo, .element_array_buffer);
+    gl.bufferData(.element_array_buffer, u32, &indicies, .static_draw);
+
     gl.vertexAttribPointer(
         0, 3, .float,
-        false, 6*@sizeOf(f32), 0,
+        false, 8*@sizeOf(f32), 0,
     );
     gl.enableVertexAttribArray(0);
     defer gl.disableVertexAttribArray(0);
 
     gl.vertexAttribPointer(
         1, 3, .float,
-        false, 6*@sizeOf(f32), 3*@sizeOf(f32),
+        false, 8*@sizeOf(f32), 3*@sizeOf(f32),
     );
     gl.enableVertexAttribArray(1);
     defer gl.disableVertexAttribArray(1);
-    
+
+    gl.vertexAttribPointer(
+        2, 2, .float,
+        false, 8*@sizeOf(f32), 6*@sizeOf(f32),
+    );
+    gl.enableVertexAttribArray(2);
+    defer gl.disableVertexAttribArray(2);
+
     while(!glfw.windowShouldClose(window)){
         if(glfw.getKey(window, glfw.Key.Escape) == glfw.KeyState.Press){
             glfw.setWindowShouldClose(window, true);
@@ -131,9 +143,10 @@ pub fn main() !void {
 
         gl.clearColor(0, 0, 0, 1);
         //gl.clear(.{ .color = true, .depth = false, });
-        
+
+        gl.bindTexture(brick_tex, .@"2d");
         gl.bindVertexArray(vao);
-        gl.drawArrays(.triangles, 0, 3);
+        gl.drawElements(.triangles, 6, .u32, null);
 
         glfw.swapBuffers(window);
         glfw.pollEvents();
