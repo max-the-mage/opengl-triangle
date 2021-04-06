@@ -12,18 +12,24 @@ pub fn build(b: *std.build.Builder) !void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
 
-    const exe = b.addExecutable("gyro-testing", "src/main.zig");
+    const exe = b.addExecutable("opengl-triangle", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
 
-    if (exe.target.isWindows()) {
-        exe.addVcpkgPaths(.Dynamic) catch @panic("vcpkg not installed");
-        if (exe.vcpkg_bin_path) |bin_path| {
-            for (&[_][]const u8{"epoxy-0.dll"}) |dll| 
-                b.installBinFile((try std.fs.path.join(b.allocator, &.{ bin_path, dll })), dll);
-        }
+    exe.addVcpkgPaths(.Dynamic) catch @panic("vcpkg not installed");
+    if (exe.vcpkg_bin_path) |bin_path| {
+        for (&[_][]const u8{"epoxy-0.dll", "glfw3.dll"}) |dll| 
+            b.installBinFile((try std.fs.path.join(b.allocator, &.{ bin_path, dll })), dll);
     }
 
+    // add resources directory
+    b.installDirectory(.{
+        .source_dir = "res",
+        .install_dir = .Bin,
+        .install_subdir = "res",
+    });
+
+    // gyro packages
     pkgs.addAllTo(exe);
 
     exe.linkSystemLibrary("epoxy");

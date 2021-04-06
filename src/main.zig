@@ -5,10 +5,10 @@ const img = @import("zigimg");
 
 const verticies = [_]f32{
      // positions     colors          tex coords
-     0.5,  0.5, 0.0,  1.0, 0.0, 0.0,  1.0, 1.0,
-     0.5, -0.5, 0.0,  0.0, 1.0, 0.0,  1.0, 0.0,
-    -0.5, -0.5, 0.0,  0.0, 0.0, 1.0,  0.0, 0.0,
-    -0.5,  0.5, 0.0,  1.0, 1.0, 1.0,  0.0, 1.0
+     0.5,  0.5, 0.0,  1.0, 0.0, 0.0,  1.0, 0.0, // top right
+     0.5, -0.5, 0.0,  0.0, 1.0, 0.0,  1.0, 1.0, // bottom right
+    -0.5, -0.5, 0.0,  0.0, 0.0, 1.0,  0.0, 1.0, // bottom left
+    -0.5,  0.5, 0.0,  1.0, 1.0, 1.0,  0.0, 0.0, // top left
 };
 
 const indicies = [_]u32{
@@ -45,25 +45,27 @@ pub fn main() !void {
     var brick_img = try img.Image.fromFilePath(alloc, ".\\res\\brick.png");
     defer brick_img.deinit();
 
-    const img_size = brick_img.width * brick_img.height * 8 * 3;
+    const img_size = brick_img.width * brick_img.height * 8 * 4;
     var buffer: []u8 = try alloc.alloc(u8, img_size);
     defer alloc.free(buffer);
-    
-    for (brick_img.pixels.?.Rgba32) |pix, i| {
-        buffer[i*3] = pix.R;
-        buffer[i*3 + 1] = pix.G;
-        buffer[i*3 + 2] = pix.B;
-    }
 
     std.log.info("pixel format: {}", .{brick_img.pixel_format});
+    
+    var length = brick_img.pixels.?.Rgba32.len;
+    for (brick_img.pixels.?.Rgba32) |pix, i| {
+        buffer[i*4] = pix.R;
+        buffer[i*4 + 1] = pix.G;
+        buffer[i*4 + 2] = pix.B;
+        buffer[i*4 + 3] = pix.A;
+    }
 
     var brick_tex = gl.createTexture(.@"2d");
     defer gl.deleteTexture(brick_tex);
 
     gl.bindTexture(brick_tex, .@"2d");
     gl.textureImage2D(
-        .@"2d", 0, .rgb, brick_img.width, brick_img.height,
-        .rgb, .unsigned_byte,
+        .@"2d", 0, .rgba, brick_img.width, brick_img.height,
+        .rgba, .unsigned_byte,
         buffer.ptr,
     );
 
