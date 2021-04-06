@@ -13,3 +13,10 @@ deps:
         repo: adma
         ref: master
     root: src/adma.zig
+  zigimg:
+    src:
+      github:
+        user: zigimg
+        repo: zigimg
+        ref: master
+    root: ./zigimg.zig

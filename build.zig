@@ -22,7 +22,6 @@ pub fn build(b: *std.build.Builder) !void {
             for (&[_][]const u8{"epoxy-0.dll"}) |dll| 
                 b.installBinFile((try std.fs.path.join(b.allocator, &.{ bin_path, dll })), dll);
         }
-        exe.subsystem = .Windows;
     }
 
     pkgs.addAllTo(exe);

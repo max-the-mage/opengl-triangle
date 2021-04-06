@@ -1,6 +1,7 @@
-const glfw = @import("glfw3.zig");
+const glfw = @import("glfw");
 const std = @import("std");
 const gl = @import("zgl");
+const img = @import("zigimg");
 
 const verticies = [_]f32{
      0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
@@ -14,14 +15,14 @@ pub fn main() !void {
     var rev : i32 = 0;
 
     glfw.getVersion(&major, &minor, &rev);
-    std.log.info("GLFW {}.{}.{}\n", .{major, minor, rev});
+    std.log.info("GLFW {}.{}.{}", .{major, minor, rev});
 
-    //Example of something that fails with GLFW_NOT_INITIALIZED - but will continue with execution
-    //var monitor : ?*glfw.Monitor = glfw.getPrimaryMonitor();
+    // Example of something that fails with GLFW_NOT_INITIALIZED - but will continue with execution
+    // var monitor : ?*glfw.Monitor = glfw.getPrimaryMonitor();
 
     try glfw.init();
     defer glfw.terminate();
-    std.log.info("GLFW Init Succeeded.\n", .{});
+    std.log.info("GLFW Init Succeeded.", .{});
     
     var window: *glfw.Window = try glfw.createWindow(800, 640, "Hello World", null, null);
 
