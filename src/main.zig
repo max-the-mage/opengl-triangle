@@ -4,15 +4,28 @@ const gl = @import("zgl");
 const img = @import("zigimg");
 
 const verticies = [_]f32{
-     0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
-    -0.5, -0.5, 0.0, 0.0, 1.0, 0.0,
-     0.0,  0.5, 0.0, 0.0, 0.0, 1.0,
+     // positions     colors          tex coords
+     0.5,  0.5, 0.0,  1.0, 0.0, 0.0,  1.0, 1.0,
+     0.5, -0.5, 0.0,  0.0, 1.0, 0.0,  1.0, 0.0,
+    -0.5, -0.5, 0.0,  0.0, 0.0, 1.0,  0.0, 0.0,
+    -0.5,  0.5, 0.0,  1.0, 1.0, 1.0,  0.0, 1.0
+};
+
+const indicies = [_]u32{
+    0, 1, 3,
+    1, 2, 3,
 };
 
 pub fn main() !void {
     var major : i32 = 0;
     var minor : i32 = 0;
     var rev : i32 = 0;
+
+    // alloc
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+
+    var alloc = &gpa.allocator;
 
     glfw.getVersion(&major, &minor, &rev);
     std.log.info("GLFW {}.{}.{}", .{major, minor, rev});
@@ -28,6 +41,39 @@ pub fn main() !void {
 
     glfw.makeContextCurrent(window);
 
+    // texture stuff (?)
+    var brick_img = try img.Image.fromFilePath(alloc, ".\\res\\brick.png");
+    defer brick_img.deinit();
+
+    const img_size = brick_img.width * brick_img.height * 8 * 4;
+    var buffer: []u8 = try alloc.alloc(u8, img_size);
+    defer alloc.free(buffer);
+    
+    for (brick_img.pixels.?.Rgba32) |pix, i| {
+        buffer[i*4] = pix.R;
+        buffer[i*4 + 1] = pix.G;
+        buffer[i*4 + 2] = pix.B;
+        buffer[i*4+ 3] = pix.A;
+    }
+
+    std.log.info("pixel format: {}", .{brick_img.pixel_format});
+
+    var brick_tex = gl.createTexture(.@"2d");
+    defer gl.deleteTexture(brick_tex);
+
+    gl.bindTexture(brick_tex, .@"2d");
+    gl.textureImage2D(
+        .@"2d", 0, .rgba, brick_img.width, brick_img.height,
+        .rgba, .unsigned_byte, 
+        buffer.ptr,
+    );
+
+    gl.textureParameter(brick_tex, .wrap_s, .repeat);
+    gl.textureParameter(brick_tex, .wrap_t, .repeat);
+    gl.textureParameter(brick_tex, .min_filter, .linear);
+    gl.textureParameter(brick_tex, .mag_filter, .linear);
+
+    // shader program
     const program = gl.createProgram();
     {
         const vs = gl.createShader(.vertex);
