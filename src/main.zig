@@ -5,9 +5,9 @@ const img = @import("zigimg");
 
 const verticies = [_]f32{
      // positions     colors          tex coords
-     0.7,  0.7, 0.0,  1.0, 0.0, 0.0,  2.0, 0.0, // top right
-     0.7, -0.7, 0.0,  0.0, 1.0, 0.0,  2.0, 2.0, // bottom right
-    -0.7, -0.7, 0.0,  0.0, 0.0, 1.0,  0.0, 2.0, // bottom left
+     0.7,  0.7, 0.0,  1.0, 0.0, 0.0,  1.0, 0.0, // top right
+     0.7, -0.7, 0.0,  0.0, 1.0, 0.0,  1.0, 1.0, // bottom right
+    -0.7, -0.7, 0.0,  0.0, 0.0, 1.0,  0.0, 1.0, // bottom left
     -0.7,  0.7, 0.0,  1.0, 1.0, 1.0,  0.0, 0.0, // top left
 };
 
@@ -37,28 +37,28 @@ pub fn main() !void {
     defer glfw.terminate();
     std.log.info("GLFW Init Succeeded.", .{});
     
-    var window: *glfw.Window = try glfw.createWindow(800, 640, "Hello World", null, null);
+    var window: *glfw.Window = try glfw.createWindow(800, 800, "Hello World", null, null);
 
     glfw.makeContextCurrent(window);
     glfw.swapInterval(1);
 
     // texture stuff (?)
-    var brick_img = try img.Image.fromFilePath(alloc, ".\\res\\brick.png");
-    defer brick_img.deinit();
+    var crate_img = try img.Image.fromFilePath(alloc, ".\\res\\crate.png");
+    defer crate_img.deinit();
 
-    const img_size = brick_img.pixels.?.len() * 8 * 4;
-    var brick_buf: []u8 = try alloc.alloc(u8, img_size);
-    defer alloc.free(brick_buf);
+    const img_size = crate_img.pixels.?.len() * 8 * 4;
+    var crate_buf: []u8 = try alloc.alloc(u8, img_size);
+    defer alloc.free(crate_buf);
 
-    std.log.info("pixel format: {}", .{brick_img.pixel_format});
+    std.log.info("pixel format: {}", .{crate_img.pixel_format});
     
-    var img_iter = brick_img.iterator();
+    var img_iter = crate_img.iterator();
     var i: usize = 0;
     while (img_iter.next()) |pix| : (i+=4) {
-        brick_buf[i] = @floatToInt(u8, pix.R * 255);
-        brick_buf[i + 1] = @floatToInt(u8, pix.G * 255);
-        brick_buf[i + 2] = @floatToInt(u8, pix.B * 255);
-        brick_buf[i + 3] = @floatToInt(u8, pix.A * 255);
+        crate_buf[i] = @floatToInt(u8, pix.R * 255);
+        crate_buf[i + 1] = @floatToInt(u8, pix.G * 255);
+        crate_buf[i + 2] = @floatToInt(u8, pix.B * 255);
+        crate_buf[i + 3] = @floatToInt(u8, pix.A * 255);
     }
 
     var zero_img = try img.Image.fromFilePath(alloc, ".\\res\\zero.png");
@@ -77,20 +77,20 @@ pub fn main() !void {
         zero_buf[i + 3] = @floatToInt(u8, pix.A * 255);
     }
 
-    var brick_tex = gl.createTexture(.@"2d");
-    defer gl.deleteTexture(brick_tex);
+    var crate_tex = gl.createTexture(.@"2d");
+    defer gl.deleteTexture(crate_tex);
 
     gl.activeTexture(.texture_0);
-    gl.bindTexture(brick_tex, .@"2d");
+    gl.bindTexture(crate_tex, .@"2d");
 
-    gl.textureParameter(brick_tex, .wrap_s, .mirrored_repeat);
-    gl.textureParameter(brick_tex, .wrap_t, .mirrored_repeat);
-    gl.textureParameter(brick_tex, .min_filter, .linear);
-    gl.textureParameter(brick_tex, .mag_filter, .linear);
+    gl.textureParameter(crate_tex, .wrap_s, .repeat);
+    gl.textureParameter(crate_tex, .wrap_t, .repeat);
+    gl.textureParameter(crate_tex, .min_filter, .linear);
+    gl.textureParameter(crate_tex, .mag_filter, .linear);
 
     gl.textureImage2D(
-        .@"2d", 0, .rgba, brick_img.width, brick_img.height,
-        .rgba, .unsigned_byte, brick_buf.ptr,
+        .@"2d", 0, .rgba, crate_img.width, crate_img.height,
+        .rgba, .unsigned_byte, crate_buf.ptr,
     );
 
     var zero_tex = gl.createTexture(.@"2d");
