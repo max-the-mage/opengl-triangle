@@ -5,10 +5,10 @@ const img = @import("zigimg");
 
 const verticies = [_]f32{
      // positions     colors          tex coords
-     0.5,  0.5, 0.0,  1.0, 0.0, 0.0,  1.0, 0.0, // top right
-     0.5, -0.5, 0.0,  0.0, 1.0, 0.0,  1.0, 1.0, // bottom right
-    -0.5, -0.5, 0.0,  0.0, 0.0, 1.0,  0.0, 1.0, // bottom left
-    -0.5,  0.5, 0.0,  1.0, 1.0, 1.0,  0.0, 0.0, // top left
+     0.7,  0.7, 0.0,  1.0, 0.0, 0.0,  2.0, 0.0, // top right
+     0.7, -0.7, 0.0,  0.0, 1.0, 0.0,  2.0, 2.0, // bottom right
+    -0.7, -0.7, 0.0,  0.0, 0.0, 1.0,  0.0, 2.0, // bottom left
+    -0.7,  0.7, 0.0,  1.0, 1.0, 1.0,  0.0, 0.0, // top left
 };
 
 const indicies = [_]u32{
@@ -40,39 +40,75 @@ pub fn main() !void {
     var window: *glfw.Window = try glfw.createWindow(800, 640, "Hello World", null, null);
 
     glfw.makeContextCurrent(window);
+    glfw.swapInterval(1);
 
     // texture stuff (?)
     var brick_img = try img.Image.fromFilePath(alloc, ".\\res\\brick.png");
     defer brick_img.deinit();
 
-    const img_size = brick_img.width * brick_img.height * 8 * 4;
-    var buffer: []u8 = try alloc.alloc(u8, img_size);
-    defer alloc.free(buffer);
+    const img_size = brick_img.pixels.?.len() * 8 * 4;
+    var brick_buf: []u8 = try alloc.alloc(u8, img_size);
+    defer alloc.free(brick_buf);
 
     std.log.info("pixel format: {}", .{brick_img.pixel_format});
     
-    var length = brick_img.pixels.?.Rgba32.len;
-    for (brick_img.pixels.?.Rgba32) |pix, i| {
-        buffer[i*4] = pix.R;
-        buffer[i*4 + 1] = pix.G;
-        buffer[i*4 + 2] = pix.B;
-        buffer[i*4 + 3] = pix.A;
+    var img_iter = brick_img.iterator();
+    var i: usize = 0;
+    while (img_iter.next()) |pix| : (i+=4) {
+        brick_buf[i] = @floatToInt(u8, pix.R * 255);
+        brick_buf[i + 1] = @floatToInt(u8, pix.G * 255);
+        brick_buf[i + 2] = @floatToInt(u8, pix.B * 255);
+        brick_buf[i + 3] = @floatToInt(u8, pix.A * 255);
     }
+
+    var zero_img = try img.Image.fromFilePath(alloc, ".\\res\\zero.png");
+    defer zero_img.deinit();
+
+    const zero_img_size = zero_img.pixels.?.len() * 8 * 4;
+    var zero_buf = try alloc.alloc(u8, zero_img_size);
+    defer alloc.free(zero_buf);
+
+    var zero_iter = zero_img.iterator();
+    i = 0;
+    while (zero_iter.next()) |pix| : (i+=4) {
+        zero_buf[i] = @floatToInt(u8, pix.R * 255);
+        zero_buf[i + 1] = @floatToInt(u8, pix.G * 255);
+        zero_buf[i + 2] = @floatToInt(u8, pix.B * 255);
+        zero_buf[i + 3] = @floatToInt(u8, pix.A * 255);
+    }
+
+    gl.enable(.blend);
+    gl.blendFunc(.src_alpha,.one_minus_src_alpha);
 
     var brick_tex = gl.createTexture(.@"2d");
     defer gl.deleteTexture(brick_tex);
 
-    gl.bindTexture(brick_tex, .@"2d");
-    gl.textureImage2D(
-        .@"2d", 0, .rgba, brick_img.width, brick_img.height,
-        .rgba, .unsigned_byte,
-        buffer.ptr,
-    );
-
-    gl.textureParameter(brick_tex, .wrap_s, .repeat);
-    gl.textureParameter(brick_tex, .wrap_t, .repeat);
+    gl.textureParameter(brick_tex, .wrap_s, .mirrored_repeat);
+    gl.textureParameter(brick_tex, .wrap_t, .mirrored_repeat);
     gl.textureParameter(brick_tex, .min_filter, .linear);
     gl.textureParameter(brick_tex, .mag_filter, .linear);
+
+    gl.textureImage2D(
+        .@"2d", 0, .rgba, brick_img.width, brick_img.height,
+        .rgba, .unsigned_byte, brick_buf.ptr,
+    );
+
+    var zero_tex = gl.createTexture(.@"2d");
+    defer gl.deleteTexture(zero_tex);
+
+    gl.activeTexture(.texture_1);
+    gl.bindTexture(zero_tex, .@"2d");
+
+    gl.textureParameter(zero_tex, .wrap_s, .repeat);
+    gl.textureParameter(zero_tex, .wrap_t, .repeat);
+    gl.textureParameter(zero_tex, .min_filter, .linear);
+    gl.textureParameter(zero_tex, .mag_filter, .linear);
+
+    gl.textureImage2D(
+        .@"2d", 0, .rgba, zero_img.width, zero_img.height,
+        .rgba, .unsigned_byte, zero_buf.ptr,
+    );
+
 
     // shader program
     const program = gl.createProgram();
@@ -98,6 +134,9 @@ pub fn main() !void {
         program.link();
     }
     gl.useProgram(program);
+
+    gl.programUniform1i(program, program.uniformLocation("tex1"), 0);
+    gl.programUniform1i(program, program.uniformLocation("tex2"), 1);
 
     var vao = gl.genVertexArray();
     defer gl.deleteVertexArray(vao);
