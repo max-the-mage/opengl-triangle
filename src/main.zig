@@ -77,11 +77,11 @@ pub fn main() !void {
         zero_buf[i + 3] = @floatToInt(u8, pix.A * 255);
     }
 
-    gl.enable(.blend);
-    gl.blendFunc(.src_alpha,.one_minus_src_alpha);
-
     var brick_tex = gl.createTexture(.@"2d");
     defer gl.deleteTexture(brick_tex);
+
+    gl.activeTexture(.texture_0);
+    gl.bindTexture(brick_tex, .@"2d");
 
     gl.textureParameter(brick_tex, .wrap_s, .mirrored_repeat);
     gl.textureParameter(brick_tex, .wrap_t, .mirrored_repeat);
