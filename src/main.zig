@@ -8,7 +8,17 @@ const v3 = za.vec3;
 
 const cube = @import("cube.zig");
 
+var camera_pos = v3.new(0.0, 0.0, 3.0);
+var camera_target = v3.zero();
+
+
+var camera_right = v3.zero();
+var camera_up: v3 = v3.zero();
+
 pub fn main() !void {
+    var camera_direction = v3.norm(camera_pos.sub(camera_target));
+    camera_right = v3.norm(v3.up().cross(camera_direction));
+    camera_up = camera_direction.cross(camera_right);
     try renderTriangle();
 }
 
@@ -55,7 +65,8 @@ pub fn renderTriangle() !void {
         v3.new( 1.3, -2.0, -2.5),  
         v3.new( 1.5,  2.0, -2.5), 
         v3.new( 1.5,  0.2, -1.5), 
-        v3.new(-1.3,  1.0, -1.5)  
+        v3.new(-1.3,  1.0, -1.5),
+        v3.new(-3.2, -1.8, -2.0),
     };
 
     const img_size = crate_img.pixels.?.len() * 8 * 4;
@@ -179,9 +190,8 @@ pub fn renderTriangle() !void {
 
     var model = za.mat4.identity();
 
-    const view = za.mat4.identity().translate(v3.new(0.0, 0.0, -3.0));
-    const projection = za.perspective(45.0, 800.0/600.0, 0.1, 100.0);
-
+    var view = za.look_at(camera_pos, camera_target, camera_up);
+    const projection = za.perspective(60.0, 800.0/600.0, 0.1, 100.0);
 
     const model_loc = program.uniformLocation("model");
     const view_loc = program.uniformLocation("view");
@@ -191,21 +201,32 @@ pub fn renderTriangle() !void {
     program.uniformMatrix4(proj_loc, false, &.{projection.data});
 
     // main loop
-    const transform_loc = program.uniformLocation("transform");
-    while(!glfw.windowShouldClose(window)){
+    while (!glfw.windowShouldClose(window)) {
         if(glfw.getKey(window, glfw.Key.Escape) == glfw.KeyState.Press){
             glfw.setWindowShouldClose(window, true);
         }
+
+        processInput(window);
+
+        const time_f32 = @floatCast(f32, glfw.getTime());
 
         gl.clearColor(0, 0, 0, 1);
         gl.clear(.{ .color = true, .depth = true, });
 
         gl.bindVertexArray(vao);
 
-        for (range(10)) |_, j| {
+        view = za.look_at(camera_pos, camera_pos.add(v3.back()), camera_up);
+        program.uniformMatrix4(view_loc, false, &.{view.data});
+
+        for (range(cube_positions.len)) |_, j| {
             model = za.mat4.identity();
+            
             model = model.translate(cube_positions[j]);
             model = model.rotate(20.0 * @intToFloat(f32, j), v3.new(1.0, 0.4, 0.5));
+
+            if (j == 0 or @mod(j+1, 3) == 0) {
+                model = model.rotate(@floatCast(f32, time_f32*30.0), v3.new(1.0, 0.4, 0.5));
+            }
 
             program.uniformMatrix4(model_loc, false, &.{model.data});
 
@@ -219,4 +240,18 @@ pub fn renderTriangle() !void {
 
 fn range(len: usize) []u0 {
     return @as([*]u0, undefined)[0..len];
+}
+
+fn processInput(window: *glfw.Window) void {
+    const camera_speed: f32 = 0.05;
+    const camera_front = v3.back();
+    
+    if (glfw.getKey(window, .W) == .Press)
+        camera_pos = camera_pos.add(camera_front.scale(camera_speed));
+    if (glfw.getKey(window, .S) == .Press)
+        camera_pos = camera_pos.sub(camera_front.scale(camera_speed));
+    if (glfw.getKey(window, .A) == .Press)
+        camera_pos = camera_pos.sub((v3.norm(camera_front.cross(camera_up))).scale(camera_speed));
+    if (glfw.getKey(window, .D) == .Press)
+        camera_pos = camera_pos.add((v3.norm(camera_front.cross(camera_up))).scale(camera_speed));
 }
