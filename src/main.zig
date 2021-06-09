@@ -3,6 +3,9 @@ const std = @import("std");
 const gl = @import("zgl");
 const img = @import("zigimg");
 
+const za = @import("zalgebra");
+const v3 = za.vec3;
+
 const verticies = [_]f32{
      // positions     colors          tex coords
      0.7,  0.7, 0.0,  1.0, 0.0, 0.0,  1.0, 0.0, // top right
@@ -17,6 +20,10 @@ const indicies = [_]u32{
 };
 
 pub fn main() !void {
+    try renderTriangle();
+}
+
+pub fn renderTriangle() !void {
     var major : i32 = 0;
     var minor : i32 = 0;
     var rev : i32 = 0;
@@ -138,6 +145,8 @@ pub fn main() !void {
     gl.programUniform1i(program, program.uniformLocation("tex1"), 0);
     gl.programUniform1i(program, program.uniformLocation("tex2"), 1);
 
+    
+
     var vao = gl.genVertexArray();
     defer gl.deleteVertexArray(vao);
 
@@ -186,9 +195,16 @@ pub fn main() !void {
         }
 
         gl.clearColor(0, 0, 0, 1);
-        //gl.clear(.{ .color = true, .depth = false, });
+        gl.clear(.{ .color = true, .depth = false, });
 
         gl.bindVertexArray(vao);
+
+        var tf = za.mat4.identity();
+        tf = tf.rotate(@floatCast(f32, glfw.getTime() * 30.0), v3.new(0.0, 0.0, 1.0));
+        tf = tf.scale(v3.new(0.5, 0.5, 0.5));
+
+        gl.programUniformMatrix4(program, program.uniformLocation("transform"), false, &.{tf.data});
+
         gl.drawElements(.triangles, 6, .u32, 0);
 
         glfw.swapBuffers(window);

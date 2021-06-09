@@ -35,7 +35,6 @@ pub fn build(b: *std.build.Builder) !void {
     exe.linkSystemLibrary("epoxy");
     exe.linkSystemLibrary("opengl32");
     exe.linkSystemLibrary("glfw3dll");
-    exe.linkSystemLibrary("c");
 
     exe.linkLibC();
     exe.install();

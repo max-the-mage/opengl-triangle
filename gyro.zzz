@@ -26,3 +26,9 @@ deps:
         user: Iridescence-Technologies
         repo: zglfw
         ref: master
+  zalgebra:
+    src:
+      github:
+        user: kooparse
+        repo: zalgebra
+        ref: main
