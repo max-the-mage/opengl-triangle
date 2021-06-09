@@ -6,18 +6,7 @@ const img = @import("zigimg");
 const za = @import("zalgebra");
 const v3 = za.vec3;
 
-const verticies = [_]f32{
-     // positions     colors          tex coords
-     0.7,  0.7, 0.0,  1.0, 0.0, 0.0,  1.0, 0.0, // top right
-     0.7, -0.7, 0.0,  0.0, 1.0, 0.0,  1.0, 1.0, // bottom right
-    -0.7, -0.7, 0.0,  0.0, 0.0, 1.0,  0.0, 1.0, // bottom left
-    -0.7,  0.7, 0.0,  1.0, 1.0, 1.0,  0.0, 0.0, // top left
-};
-
-const indicies = [_]u32{
-    0, 1, 3,
-    1, 2, 3,
-};
+const cube = @import("cube.zig");
 
 pub fn main() !void {
     try renderTriangle();
@@ -44,14 +33,30 @@ pub fn renderTriangle() !void {
     defer glfw.terminate();
     std.log.info("GLFW Init Succeeded.", .{});
     
-    var window: *glfw.Window = try glfw.createWindow(800, 800, "Hello World", null, null);
+    var window: *glfw.Window = try glfw.createWindow(800, 600, "Hello World", null, null);
 
     glfw.makeContextCurrent(window);
     glfw.swapInterval(1);
 
+    gl.enable(.depth_test);
+
     // texture stuff (?)
     var crate_img = try img.Image.fromFilePath(alloc, ".\\res\\crate.png");
     defer crate_img.deinit();
+
+    
+    const cube_positions = [_]za.vec3{
+        v3.new( 0.0,  0.0,  0.0), 
+        v3.new( 2.0,  5.0, -15.0), 
+        v3.new(-1.5, -2.2, -2.5),  
+        v3.new(-3.8, -2.0, -12.0),  
+        v3.new( 2.4, -0.4, -3.5),  
+        v3.new(-1.7,  3.0, -7.5),  
+        v3.new( 1.3, -2.0, -2.5),  
+        v3.new( 1.5,  2.0, -2.5), 
+        v3.new( 1.5,  0.2, -1.5), 
+        v3.new(-1.3,  1.0, -1.5)  
+    };
 
     const img_size = crate_img.pixels.?.len() * 8 * 4;
     var crate_buf: []u8 = try alloc.alloc(u8, img_size);
@@ -145,69 +150,73 @@ pub fn renderTriangle() !void {
     gl.programUniform1i(program, program.uniformLocation("tex1"), 0);
     gl.programUniform1i(program, program.uniformLocation("tex2"), 1);
 
-    
-
     var vao = gl.genVertexArray();
     defer gl.deleteVertexArray(vao);
 
     var vbo = gl.genBuffer();
     defer gl.deleteBuffer(vbo);
 
-    var ebo = gl.genBuffer();
-    defer gl.deleteBuffer(ebo);
-
     gl.bindVertexArray(vao);
 
     gl.bindBuffer(vbo, .array_buffer);
-    gl.bufferData(.array_buffer, f32, &verticies, .static_draw);
-
-    gl.bindBuffer(ebo, .element_array_buffer);
-    gl.bufferData(.element_array_buffer, u32, &indicies, .static_draw);
+    gl.bufferData(.array_buffer, f32, &cube.verticies, .static_draw);
 
     // triangle positions
     gl.vertexAttribPointer(
         0, 3, .float,
-        false, 8*@sizeOf(f32), 0,
+        false, 5*@sizeOf(f32), 0,
     );
     gl.enableVertexAttribArray(0);
     defer gl.disableVertexAttribArray(0);
 
-    // colors
+    // texture coords
     gl.vertexAttribPointer(
-        1, 3, .float,
-        false, 8*@sizeOf(f32), 3*@sizeOf(f32),
+        1, 2, .float,
+        false, 5*@sizeOf(f32), 3*@sizeOf(f32),
     );
     gl.enableVertexAttribArray(1);
     defer gl.disableVertexAttribArray(1);
 
-    // texture coords
-    gl.vertexAttribPointer(
-        2, 2, .float,
-        false, 8*@sizeOf(f32), 6*@sizeOf(f32),
-    );
-    gl.enableVertexAttribArray(2);
-    defer gl.disableVertexAttribArray(2);
+    var model = za.mat4.identity();
+
+    const view = za.mat4.identity().translate(v3.new(0.0, 0.0, -3.0));
+    const projection = za.perspective(45.0, 800.0/600.0, 0.1, 100.0);
+
+
+    const model_loc = program.uniformLocation("model");
+    const view_loc = program.uniformLocation("view");
+    const proj_loc = program.uniformLocation("projection");
+
+    program.uniformMatrix4(view_loc, false, &.{view.data});
+    program.uniformMatrix4(proj_loc, false, &.{projection.data});
 
     // main loop
+    const transform_loc = program.uniformLocation("transform");
     while(!glfw.windowShouldClose(window)){
         if(glfw.getKey(window, glfw.Key.Escape) == glfw.KeyState.Press){
             glfw.setWindowShouldClose(window, true);
         }
 
         gl.clearColor(0, 0, 0, 1);
-        gl.clear(.{ .color = true, .depth = false, });
+        gl.clear(.{ .color = true, .depth = true, });
 
         gl.bindVertexArray(vao);
 
-        var tf = za.mat4.identity();
-        tf = tf.rotate(@floatCast(f32, glfw.getTime() * 30.0), v3.new(0.0, 0.0, 1.0));
-        tf = tf.scale(v3.new(0.5, 0.5, 0.5));
+        for (range(10)) |_, j| {
+            model = za.mat4.identity();
+            model = model.translate(cube_positions[j]);
+            model = model.rotate(20.0 * @intToFloat(f32, j), v3.new(1.0, 0.4, 0.5));
 
-        gl.programUniformMatrix4(program, program.uniformLocation("transform"), false, &.{tf.data});
+            program.uniformMatrix4(model_loc, false, &.{model.data});
 
-        gl.drawElements(.triangles, 6, .u32, 0);
+            gl.drawArrays(.triangles, 0, 36);
+        }
 
         glfw.swapBuffers(window);
         glfw.pollEvents();
     }
+}
+
+fn range(len: usize) []u0 {
+    return @as([*]u0, undefined)[0..len];
 }
