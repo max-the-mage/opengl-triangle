@@ -19,6 +19,7 @@ var yaw: f32 = -90.0;
 var pitch: f32 = 0.0;
 
 var direction = v3.back();
+var cube_positions: std.ArrayList(v3) = undefined;
 
 pub fn main() !void {
     var camera_direction = v3.norm(camera_pos.sub(camera_target));
@@ -62,7 +63,7 @@ pub fn renderTriangle() !void {
     var crate_img = try img.Image.fromFilePath(alloc, ".\\res\\crate.png");
     defer crate_img.deinit();
     
-    const cube_positions = [_]za.vec3{
+    const cubes = [_]za.vec3{
         v3.new( 0.0,  0.0,  0.0), 
         v3.new( 2.0,  5.0, -15.0), 
         v3.new(-1.5, -2.2, -2.5),  
@@ -75,6 +76,11 @@ pub fn renderTriangle() !void {
         v3.new(-1.3,  1.0, -1.5),
         v3.new(-3.2, -1.8, -2.0),
     };
+
+    cube_positions = std.ArrayList(v3).init(alloc);
+    defer cube_positions.deinit();
+
+    try cube_positions.appendSlice(cubes[0..]);
 
     const img_size = crate_img.pixels.?.len() * 8 * 4;
     var crate_buf: []u8 = try alloc.alloc(u8, img_size);
@@ -228,10 +234,10 @@ pub fn renderTriangle() !void {
         projection = za.perspective(fov, 800.0/600.0, 0.1, 100.0);
         program.uniformMatrix4(proj_loc, false, &.{projection.data});
 
-        for (range(cube_positions.len)) |_, j| {
+        for (cube_positions.items) |cur, j| {
             model = za.mat4.identity();
             
-            model = model.translate(cube_positions[j]);
+            model = model.translate(cur);
             model = model.rotate(20.0 * @intToFloat(f32, j), v3.new(1.0, 0.4, 0.5));
 
             if (j == 0 or @mod(j+1, 3) == 0) {
@@ -252,6 +258,7 @@ fn range(len: usize) []u0 {
     return @as([*]u0, undefined)[0..len];
 }
 
+var e_is_pressed = false;
 fn processInput(window: *glfw.Window) void {
     const camera_speed: f32 = 0.05;
     // vertically locked camera front
@@ -274,6 +281,19 @@ fn processInput(window: *glfw.Window) void {
         camera_pos = camera_pos.sub(camera_up.scale(camera_speed));
     if (glfw.getKey(window, .Space) == .Press)
         camera_pos = camera_pos.add(camera_up.scale(camera_speed));
+    
+    if (glfw.getKey(window, .E) == .Press) {
+        if (!e_is_pressed) {
+            cube_positions.append(camera_pos.add(camera_front.scale(1.5))) catch |e| {
+                std.log.err("unable to add cube: {}", .{e});
+            };
+            e_is_pressed = true;
+        }
+    }
+
+    if (glfw.getKey(window, .E) == .Release) {
+        e_is_pressed = false;
+    }
 }
 
 var last_x: f64 = 400.0;
