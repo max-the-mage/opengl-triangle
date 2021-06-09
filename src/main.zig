@@ -255,8 +255,13 @@ fn range(len: usize) []u0 {
 fn processInput(window: *glfw.Window) void {
     const camera_speed: f32 = 0.05;
     // vertically locked camera front
-    const camera_vl = v3.new(camera_front.x, 0.0, camera_front.z);
     
+    var new_dir = v3.zero();
+    new_dir.x = @cos(za.to_radians(yaw));
+    new_dir.z = @sin(za.to_radians(yaw));
+
+    const camera_vl = new_dir.norm();
+
     if (glfw.getKey(window, .W) == .Press)
         camera_pos = camera_pos.add(camera_vl.scale(camera_speed));
     if (glfw.getKey(window, .S) == .Press)
@@ -273,7 +278,6 @@ fn processInput(window: *glfw.Window) void {
 
 var last_x: f64 = 400.0;
 var last_y: f64 = 300.0;
-
 
 var first_mouse = true;
 fn mouse_callback(window: *glfw.Window, xpos: f64, ypos: f64) callconv(.C) void {
