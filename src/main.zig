@@ -1,4 +1,4 @@
-const glfw = @import("glfw");
+const glfw = @import("zglfw");
 const std = @import("std");
 const gl = @import("zgl");
 const img = @import("zigimg");
@@ -189,7 +189,7 @@ pub fn main() !void {
         //gl.clear(.{ .color = true, .depth = false, });
 
         gl.bindVertexArray(vao);
-        gl.drawElements(.triangles, 6, .u32, null);
+        gl.drawElements(.triangles, 6, .u32, 0);
 
         glfw.swapBuffers(window);
         glfw.pollEvents();

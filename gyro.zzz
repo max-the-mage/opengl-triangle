@@ -20,3 +20,9 @@ deps:
         repo: zigimg
         ref: master
     root: ./zigimg.zig
+  zglfw:
+    src:
+      github:
+        user: Iridescence-Technologies
+        repo: zglfw
+        ref: master
