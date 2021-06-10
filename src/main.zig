@@ -102,7 +102,7 @@ fn render() !void {
     defer glfw.terminate();
     std.log.info("GLFW Init Succeeded.", .{});
     
-    var window: *glfw.Window = try glfw.createWindow(1280, 720, "Hello World", null, null);
+    var window: *glfw.Window = try glfw.createWindow(1280, 720, "Minecraft 2 - Also Try Terraria 2", null, null);
 
     glfw.makeContextCurrent(window);
     glfw.setInputMode(window, .Cursor, 0x00034003);
