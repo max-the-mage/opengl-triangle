@@ -19,8 +19,46 @@ var yaw: f32 = -90.0;
 var pitch: f32 = 0.0;
 
 var direction = v3.back();
-var cube_positions: std.ArrayList(v3) = undefined;
-var prism_positions: std.ArrayList(v3) = undefined;
+
+var rand: *std.rand.Random = undefined;
+
+const rand_range: f32 = 15.0;
+
+const ObjectType = enum(usize) {
+    Cube,
+    Prism,
+};
+const type_values = @typeInfo(ObjectType).Enum.fields.len;
+
+// std.log.info("type_vales: {}", .{type_values});
+
+const Object = struct {
+    pos: v3,
+    rot: v3, // angle in degrees for x, y, z axis
+    speed: f32,
+    obj_type: ObjectType,
+};
+
+var objects: std.ArrayList(Object) = undefined;
+
+fn newRandomObject(list: *std.ArrayList(Object)) void {
+    list.append(Object{
+        .pos = v3.new(
+            rand.float(f32) * (rand_range*2.0) - rand_range,
+            rand.float(f32) * (rand_range*2.0) - rand_range,
+            rand.float(f32) * (rand_range*2.0) - rand_range,
+        ),
+        .rot = v3.new(
+            randRot(),
+            randRot(),
+            randRot(),
+        ),
+        .speed = (rand.float(f32)+1.0) * 2.0,
+        .obj_type = @intToEnum(ObjectType, rand.uintLessThan(usize, type_values)),
+    }) catch |e| {
+        std.log.warn("unable to add object: {}", .{e});
+    };
+}
 
 pub fn main() !void {
     var camera_direction = v3.norm(camera_pos.sub(camera_target));
@@ -30,6 +68,13 @@ pub fn main() !void {
 }
 
 fn render() !void {
+    var prng = std.rand.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        try std.os.getrandom(std.mem.asBytes(&seed));
+        break :blk seed;
+    });
+    rand = &prng.random;
+
     var major : i32 = 0;
     var minor : i32 = 0;
     var rev : i32 = 0;
@@ -63,39 +108,13 @@ fn render() !void {
     // texture stuff (?)
     var crate_img = try img.Image.fromFilePath(alloc, ".\\res\\crate.png");
     defer crate_img.deinit();
-    
-    cube_positions = std.ArrayList(v3).init(alloc);
-    defer cube_positions.deinit();
 
-    try cube_positions.appendSlice(&.{
-        v3.new( 0.0,  0.0,  0.0), 
-        v3.new( 2.0,  5.0, -15.0), 
-        v3.new(-1.5, -2.2, -2.5),  
-        v3.new(-3.8, -2.0, -12.0),  
-        v3.new( 2.4, -0.4, -3.5),  
-        v3.new(-1.7,  3.0, -7.5),  
-        v3.new( 1.3, -2.0, -2.5),  
-        v3.new( 1.5,  2.0, -2.5), 
-        v3.new( 1.5,  0.2, -1.5), 
-        v3.new(-1.3,  1.0, -1.5),
-        v3.new(-3.2, -1.8, -2.0),
-    });
+    objects = std.ArrayList(Object).init(alloc);
+    defer objects.deinit();
 
-    prism_positions = std.ArrayList(v3).init(alloc);
-    defer prism_positions.deinit();
-
-    try prism_positions.appendSlice(&.{
-        v3.new(-2.0,  5.0, -15.0), 
-        v3.new( 1.5, -2.2, -2.5),  
-        v3.new( 3.8, -2.0, -12.0),  
-        v3.new(-2.4, -0.4, -3.5),  
-        v3.new( 1.7,  3.0, -7.5),  
-        v3.new(-1.3, -2.0, -2.5),  
-        v3.new(-1.5,  2.0, -2.5), 
-        v3.new(-1.5,  0.2, -1.5), 
-        v3.new( 1.3,  1.0, -1.5),
-        v3.new( 3.2, -1.8, -2.0),
-    });
+    for (range(rand.uintAtMost(usize, 75) + 25)) |_| {
+        newRandomObject(&objects);
+    }
 
     const img_size = crate_img.pixels.?.len() * 8 * 4;
     var crate_buf: []u8 = try alloc.alloc(u8, img_size);
@@ -143,7 +162,6 @@ fn render() !void {
         obama_buf[i + 2] = @floatToInt(u8, pix.B * 255);
         obama_buf[i + 3] = @floatToInt(u8, pix.A * 255);
     }
-
 
     var crate_tex = gl.createTexture(.@"2d");
     defer gl.deleteTexture(crate_tex);
@@ -231,16 +249,6 @@ fn render() !void {
     gl.bindBuffer(vbo, .array_buffer);
     gl.bufferData(.array_buffer, f32, &models.cube, .static_draw);
 
-    // var vao_p = gl.genVertexArray();
-    // defer gl.deleteVertexArray(vao_p);
-
-    // var vbo_p = gl.genBuffer();
-    // defer gl.deleteBuffer(vbo_p);
-
-    // gl.bindVertexArray(vao_p);
-
-    
-
     // triangle positions
     gl.vertexAttribPointer(
         0, 3, .float,
@@ -291,40 +299,52 @@ fn render() !void {
         program.uniformMatrix4(proj_loc, false, &.{projection.data});
 
         gl.bindBuffer(vbo, .array_buffer);
+
         gl.bufferData(.array_buffer, f32, &models.cube, .static_draw);
         gl.bindTexture(zero_tex, .@"2d");
+        for (objects.items) |cur,j| {
 
-        for (cube_positions.items) |cur, j| {
+            if (cur.obj_type != .Cube) {
+                continue;
+            }
+
             model = za.mat4.identity();
-            
-            model = model.translate(cur);
-            model = model.rotate(20.0 * @intToFloat(f32, j), v3.new(1.0, 0.4, 0.5));
 
-            if (j == 0 or @mod(j+1, 3) == 0) {
-                model = model.rotate(@floatCast(f32, time_f32*30.0), v3.new(1.0, 0.4, 0.5));
+            model = model.translate(cur.pos);
+            model = model.rotate(cur.rot.x, v3.new(1.0, 0.0, 0.0));
+            model = model.rotate(cur.rot.y, v3.new(0.0, 1.0, 0.0));
+            model = model.rotate(cur.rot.z, v3.new(0.0, 0.0, 1.0));
+            
+            if (j == 1 or @mod(j, 3) == 0) {
+                model = model.rotate(@floatCast(f32, time_f32*30.0*cur.speed), v3.new(1.0, 0.4, 0.5));
             }
 
             program.uniformMatrix4(model_loc, false, &.{model.data});
-
+            
             gl.drawArrays(.triangles, 0, 36);
         }
 
         gl.bufferData(.array_buffer, f32, &models.prism, .static_draw);
         gl.bindTexture(obama_tex, .@"2d");
+        for (objects.items) |cur,j| {
 
-        for (prism_positions.items) |cur, j| {
+            if (cur.obj_type != .Prism) {
+                continue;
+            }
+
             model = za.mat4.identity();
-            
-            model = model.translate(cur);
-            model = model.rotate(20.0 * @intToFloat(f32, j), v3.new(1.0, 0.4, 0.5));
 
-            model = model.rotate(@floatCast(f32, time_f32*45.0), v3.new(0.0, 1.0, 0.0));
+            model = model.translate(cur.pos);
+            model = model.rotate(cur.rot.x, v3.new(1.0, 0.0, 0.0));
+            model = model.rotate(cur.rot.y, v3.new(0.0, 1.0, 0.0));
+            model = model.rotate(cur.rot.z, v3.new(0.0, 0.0, 1.0));
+
+            model = model.rotate(@floatCast(f32, time_f32*60.0*cur.speed), v3.new(0.0, 1.0, 0.0));
 
             program.uniformMatrix4(model_loc, false, &.{model.data});
-
+            
             gl.drawArrays(.triangles, 0, 18);
         }
-        
 
         glfw.swapBuffers(window);
         glfw.pollEvents();
@@ -333,6 +353,10 @@ fn render() !void {
 
 fn range(len: usize) []u0 {
     return @as([*]u0, undefined)[0..len];
+}
+
+fn randRot() f32 {
+    return rand.float(f32) * 360.0;
 }
 
 var e_is_pressed = false;
@@ -362,9 +386,21 @@ fn processInput(window: *glfw.Window) void {
     
     if (glfw.getKey(window, .E) == .Press) {
         if (!e_is_pressed) {
-            cube_positions.append(camera_pos.add(camera_front.scale(1.5))) catch |e| {
-                std.log.err("unable to add cube: {}", .{e});
+            const new_obj = Object{
+                .pos = camera_pos.add(camera_front.scale(1.5)),
+                .rot = v3.new(
+                    randRot(),
+                    randRot(),
+                    randRot(),
+                ),
+                .speed = (rand.float(f32)+1.0) * 2.0,
+                .obj_type = .Cube
             };
+
+            objects.append(new_obj) catch |e| {
+                std.log.warn("unable to add cube: {}", .{e});
+            };
+
             e_is_pressed = true;
         }
     }
@@ -375,8 +411,19 @@ fn processInput(window: *glfw.Window) void {
 
     if (glfw.getKey(window, .Q) == .Press) {
         if (!q_is_pressed) {
-            prism_positions.append(camera_pos.add(camera_front.scale(1.5))) catch |e| {
-                std.log.err("unable to add prism: {}", .{e});
+            const new_obj = Object{
+                .pos = camera_pos.add(camera_front.scale(1.5)),
+                .rot = v3.new(
+                    randRot(),
+                    randRot(),
+                    randRot(),
+                ),
+                .speed = (rand.float(f32)+1.0) * 2.0,
+                .obj_type = .Prism,
+            };
+
+            objects.append(new_obj) catch |e| {
+                std.log.warn("unable to add prism: {}", .{e});
             };
             q_is_pressed = true;
         }
@@ -384,6 +431,10 @@ fn processInput(window: *glfw.Window) void {
 
     if (glfw.getKey(window, .Q) == .Release) {
         q_is_pressed = false;
+    }
+
+    if (glfw.getKey(window, .F) == .Press) {
+        newRandomObject(&objects);
     }
 }
 
