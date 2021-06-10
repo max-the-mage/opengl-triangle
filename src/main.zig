@@ -6,7 +6,7 @@ const img = @import("zigimg");
 const za = @import("zalgebra");
 const v3 = za.vec3;
 
-const cube = @import("cube.zig");
+const models = @import("models.zig");
 
 var camera_pos = v3.new(0.0, 0.0, 3.0);
 var camera_target = v3.zero();
@@ -20,15 +20,16 @@ var pitch: f32 = 0.0;
 
 var direction = v3.back();
 var cube_positions: std.ArrayList(v3) = undefined;
+var prism_positions: std.ArrayList(v3) = undefined;
 
 pub fn main() !void {
     var camera_direction = v3.norm(camera_pos.sub(camera_target));
     camera_right = v3.norm(v3.up().cross(camera_direction));
     camera_up = camera_direction.cross(camera_right);
-    try renderTriangle();
+    try render();
 }
 
-pub fn renderTriangle() !void {
+fn render() !void {
     var major : i32 = 0;
     var minor : i32 = 0;
     var rev : i32 = 0;
@@ -49,7 +50,7 @@ pub fn renderTriangle() !void {
     defer glfw.terminate();
     std.log.info("GLFW Init Succeeded.", .{});
     
-    var window: *glfw.Window = try glfw.createWindow(800, 600, "Hello World", null, null);
+    var window: *glfw.Window = try glfw.createWindow(1280, 720, "Hello World", null, null);
 
     glfw.makeContextCurrent(window);
     glfw.setInputMode(window, .Cursor, 0x00034003);
@@ -63,7 +64,10 @@ pub fn renderTriangle() !void {
     var crate_img = try img.Image.fromFilePath(alloc, ".\\res\\crate.png");
     defer crate_img.deinit();
     
-    const cubes = [_]za.vec3{
+    cube_positions = std.ArrayList(v3).init(alloc);
+    defer cube_positions.deinit();
+
+    try cube_positions.appendSlice(&.{
         v3.new( 0.0,  0.0,  0.0), 
         v3.new( 2.0,  5.0, -15.0), 
         v3.new(-1.5, -2.2, -2.5),  
@@ -75,12 +79,23 @@ pub fn renderTriangle() !void {
         v3.new( 1.5,  0.2, -1.5), 
         v3.new(-1.3,  1.0, -1.5),
         v3.new(-3.2, -1.8, -2.0),
-    };
+    });
 
-    cube_positions = std.ArrayList(v3).init(alloc);
-    defer cube_positions.deinit();
+    prism_positions = std.ArrayList(v3).init(alloc);
+    defer prism_positions.deinit();
 
-    try cube_positions.appendSlice(cubes[0..]);
+    try prism_positions.appendSlice(&.{
+        v3.new(-2.0,  5.0, -15.0), 
+        v3.new( 1.5, -2.2, -2.5),  
+        v3.new( 3.8, -2.0, -12.0),  
+        v3.new(-2.4, -0.4, -3.5),  
+        v3.new( 1.7,  3.0, -7.5),  
+        v3.new(-1.3, -2.0, -2.5),  
+        v3.new(-1.5,  2.0, -2.5), 
+        v3.new(-1.5,  0.2, -1.5), 
+        v3.new( 1.3,  1.0, -1.5),
+        v3.new( 3.2, -1.8, -2.0),
+    });
 
     const img_size = crate_img.pixels.?.len() * 8 * 4;
     var crate_buf: []u8 = try alloc.alloc(u8, img_size);
@@ -112,6 +127,23 @@ pub fn renderTriangle() !void {
         zero_buf[i + 2] = @floatToInt(u8, pix.B * 255);
         zero_buf[i + 3] = @floatToInt(u8, pix.A * 255);
     }
+
+    var obama_img = try img.Image.fromFilePath(alloc, ".\\res\\obamium.png");
+    defer obama_img.deinit();
+
+    const obama_img_size = obama_img.pixels.?.len() * 8 * 4;
+    var obama_buf = try alloc.alloc(u8, obama_img_size);
+    defer alloc.free(obama_buf);
+
+    var obama_iter = obama_img.iterator();
+    i = 0;
+    while (obama_iter.next()) |pix| : (i+=4) {
+        obama_buf[i] = @floatToInt(u8, pix.R * 255);
+        obama_buf[i + 1] = @floatToInt(u8, pix.G * 255);
+        obama_buf[i + 2] = @floatToInt(u8, pix.B * 255);
+        obama_buf[i + 3] = @floatToInt(u8, pix.A * 255);
+    }
+
 
     var crate_tex = gl.createTexture(.@"2d");
     defer gl.deleteTexture(crate_tex);
@@ -145,6 +177,20 @@ pub fn renderTriangle() !void {
         .rgba, .unsigned_byte, zero_buf.ptr,
     );
 
+    var obama_tex = gl.createTexture(.@"2d");
+    defer gl.deleteTexture(obama_tex);
+
+    gl.bindTexture(obama_tex, .@"2d");
+
+    gl.textureParameter(obama_tex, .wrap_s, .repeat);
+    gl.textureParameter(obama_tex, .wrap_t, .repeat);
+    gl.textureParameter(obama_tex, .min_filter, .linear);
+    gl.textureParameter(obama_tex, .mag_filter, .linear);
+    
+    gl.textureImage2D(
+        .@"2d", 0, .rgba, obama_img.width, obama_img.height,
+        .rgba, .unsigned_byte, obama_buf.ptr,
+    );
 
     // shader program
     const program = gl.createProgram();
@@ -183,7 +229,17 @@ pub fn renderTriangle() !void {
     gl.bindVertexArray(vao);
 
     gl.bindBuffer(vbo, .array_buffer);
-    gl.bufferData(.array_buffer, f32, &cube.verticies, .static_draw);
+    gl.bufferData(.array_buffer, f32, &models.cube, .static_draw);
+
+    // var vao_p = gl.genVertexArray();
+    // defer gl.deleteVertexArray(vao_p);
+
+    // var vbo_p = gl.genBuffer();
+    // defer gl.deleteBuffer(vbo_p);
+
+    // gl.bindVertexArray(vao_p);
+
+    
 
     // triangle positions
     gl.vertexAttribPointer(
@@ -204,7 +260,7 @@ pub fn renderTriangle() !void {
     var model = za.mat4.identity();
 
     var view = za.look_at(camera_pos, camera_target, camera_up);
-    var projection = za.perspective(fov, 800.0/600.0, 0.1, 100.0);
+    var projection = za.perspective(fov, 1280.0/720.0, 0.1, 100.0);
 
     const model_loc = program.uniformLocation("model");
     const view_loc = program.uniformLocation("view");
@@ -234,6 +290,10 @@ pub fn renderTriangle() !void {
         projection = za.perspective(fov, 800.0/600.0, 0.1, 100.0);
         program.uniformMatrix4(proj_loc, false, &.{projection.data});
 
+        gl.bindBuffer(vbo, .array_buffer);
+        gl.bufferData(.array_buffer, f32, &models.cube, .static_draw);
+        gl.bindTexture(zero_tex, .@"2d");
+
         for (cube_positions.items) |cur, j| {
             model = za.mat4.identity();
             
@@ -249,6 +309,23 @@ pub fn renderTriangle() !void {
             gl.drawArrays(.triangles, 0, 36);
         }
 
+        gl.bufferData(.array_buffer, f32, &models.prism, .static_draw);
+        gl.bindTexture(obama_tex, .@"2d");
+
+        for (prism_positions.items) |cur, j| {
+            model = za.mat4.identity();
+            
+            model = model.translate(cur);
+            model = model.rotate(20.0 * @intToFloat(f32, j), v3.new(1.0, 0.4, 0.5));
+
+            model = model.rotate(@floatCast(f32, time_f32*45.0), v3.new(0.0, 1.0, 0.0));
+
+            program.uniformMatrix4(model_loc, false, &.{model.data});
+
+            gl.drawArrays(.triangles, 0, 18);
+        }
+        
+
         glfw.swapBuffers(window);
         glfw.pollEvents();
     }
@@ -259,6 +336,7 @@ fn range(len: usize) []u0 {
 }
 
 var e_is_pressed = false;
+var q_is_pressed = false;
 fn processInput(window: *glfw.Window) void {
     const camera_speed: f32 = 0.05;
     // vertically locked camera front
@@ -294,10 +372,23 @@ fn processInput(window: *glfw.Window) void {
     if (glfw.getKey(window, .E) == .Release) {
         e_is_pressed = false;
     }
+
+    if (glfw.getKey(window, .Q) == .Press) {
+        if (!q_is_pressed) {
+            prism_positions.append(camera_pos.add(camera_front.scale(1.5))) catch |e| {
+                std.log.err("unable to add prism: {}", .{e});
+            };
+            q_is_pressed = true;
+        }
+    }
+
+    if (glfw.getKey(window, .Q) == .Release) {
+        q_is_pressed = false;
+    }
 }
 
-var last_x: f64 = 400.0;
-var last_y: f64 = 300.0;
+var last_x: f64 = 640.0;
+var last_y: f64 = 460.0;
 
 var first_mouse = true;
 fn mouse_callback(window: *glfw.Window, xpos: f64, ypos: f64) callconv(.C) void {
