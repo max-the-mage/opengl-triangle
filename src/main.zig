@@ -302,7 +302,7 @@ fn render() !void {
         view = za.look_at(camera_pos, camera_pos.add(camera_front), camera_up);
         program.uniformMatrix4(view_loc, false, &.{view.data});
 
-        projection = za.perspective(fov, 800.0/600.0, 0.1, 100.0);
+        projection = za.perspective(fov, 1280.0/720.0, 0.1, 100.0);
         program.uniformMatrix4(proj_loc, false, &.{projection.data});
 
         gl.bindBuffer(vbo, .array_buffer);
