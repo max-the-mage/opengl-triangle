@@ -362,7 +362,7 @@ fn randRot() f32 {
 var e_is_pressed = false;
 var q_is_pressed = false;
 fn processInput(window: *glfw.Window) void {
-    const camera_speed: f32 = 0.05;
+    const camera_speed: f32 = 0.1;
     // vertically locked camera front
     
     var new_dir = v3.zero();
