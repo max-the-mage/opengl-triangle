@@ -22,7 +22,7 @@ var direction = v3.back();
 
 var rand: *std.rand.Random = undefined;
 
-const rand_range: f32 = 15.0;
+const rand_range: f32 = 20.0;
 
 const ObjectType = enum(usize) {
     Cube,
@@ -42,7 +42,7 @@ const Object = struct {
 var objects: std.ArrayList(Object) = undefined;
 
 fn newRandomObject(list: *std.ArrayList(Object)) void {
-    list.append(Object{
+    var new_obj = Object{
         .pos = v3.new(
             rand.float(f32) * (rand_range*2.0) - rand_range,
             rand.float(f32) * (rand_range*2.0) - rand_range,
@@ -55,9 +55,16 @@ fn newRandomObject(list: *std.ArrayList(Object)) void {
         ),
         .speed = (rand.float(f32)+1.0) * 2.0,
         .obj_type = @intToEnum(ObjectType, rand.uintLessThan(usize, type_values)),
-    }) catch |e| {
+    };
+
+    while (new_obj.pos.length() > rand_range * 0.8) {
+        new_obj.pos = new_obj.pos.scale(0.9);
+    }
+    list.append(new_obj) catch |e| {
         std.log.warn("unable to add object: {}", .{e});
     };
+
+    std.debug.print("object count: {}\n", .{list.items.len});
 }
 
 pub fn main() !void {
